@@ -1,0 +1,100 @@
+{
+    "_cardName": "Inside the room",
+    "_cardBackgrounds": [{"_cardBackgroundAsset": "inside.png"}],
+    "_cardObjects":
+    	[
+    		{
+    			"_objectObjectAsset": "door.png",
+    			"_objectPosition": [562,159],
+    			"_objectOnClick":
+    				[
+    					{
+    						"tag": "ConditionalAction",
+    						"contents":
+							{
+								"_conditionals":
+									[
+										{
+											"_conditionFlag": {"_flagName": "hasKey", "_flagValue": true}
+										
+										}
+									],
+								"_onTrue":
+				    					{
+				    						"tag": "ActionTypeLink",
+				    						"contents": {"_linkCard": "three.card"}
+									}
+							}
+
+					}
+				],
+    			"_objectOnHover":
+    				[
+    					{
+						"tag": "ActionTypeSfx",
+				    		"contents": {"_actionSfxAsset": "pop.ogg"}
+					}
+				]
+    		},
+    		{
+    			"_objectObjectAsset": "key.png",
+    			"_objectPosition": [400,400],
+    			"_objectAppearConditions":
+    				[
+	    				{
+	    					"_conditionFlag": {"_flagName": "hasKey", "_flagValue": false}
+	    				}
+    				],
+    			"_objectOnClick":
+    				[
+    					{
+    						"tag": "ActionTypeFlag",
+    						"contents": {"_flagName": "hasKey", "_flagValue": true}
+					}
+				],
+    			"_objectOnHover":
+    				[
+    					{
+    						"tag": "ActionTypeSfx",
+    						"contents": {"_actionSfxAsset": "pop.ogg"}
+					}
+				],
+				"_objectTransformation": {
+				    "_transformPosition": [0, 0],
+				    "_transformScale": 1.0,
+				    "_transformRotate": 0.0
+				},
+			    "_objectTween": {
+				"_tweenStart": {
+				    "_transformPosition": [1, 1],
+				    "_transformScale": 1.0,
+				    "_transformRotate": 0.0
+				},
+				"_tweenEnd": {
+				    "_transformPosition": [200, 200],
+				    "_transformScale": 1.5,
+				    "_transformRotate": 45.0
+				},
+				"_tweenDuration": 3000,
+				"_tweenOscillate": true
+			    }
+    		},
+    		{
+    			"_objectObjectAsset": "door.png",
+    			"_objectPosition": [148,168],
+    			"_objectOnClick":
+    				[
+    					{
+    						"tag": "ActionTypeLink",
+    						"contents": {"_linkCard": "title.card"}
+					}
+				],
+    			"_objectOnHover":
+    				[
+				]
+    		}
+	],
+    "_cardMusic": {"_musicLoop": false, "_musicInterrupt": false, "_musicMusicAsset": "Oh_Christmas_Tree.ogg"},
+    "_cardText": {"_text": "This is a test of text system.", "_textSize": 22, "_textColor": [255, 255, 255]}
+}
+

@@ -1,0 +1,22 @@
+{
+    "_cardName": "Secret room",
+    "_cardBackgrounds": [{"_cardBackgroundAsset": "secret_room.png"}],
+    "_cardObjects":
+    	[
+    		{
+    			"_objectObjectAsset": "door.png",
+    			"_objectPosition": [300,300],
+    			"_objectOnClick":
+    				[
+    					{
+    						"tag": "ActionTypeLink",
+    						"contents": {"_linkCard": "two.card"}
+					}
+				],
+    			"_objectOnHover":
+    				[
+				]
+    		}
+	]
+}
+

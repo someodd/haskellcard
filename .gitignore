@@ -1,0 +1,6 @@
+.stack-work/
+*~
+dist-newstyle/
+result/
+*/.swp
+result

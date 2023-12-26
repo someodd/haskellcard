@@ -1,0 +1,4 @@
+ignore-project: False
+
+program-options
+  ghc-options: -haddock
