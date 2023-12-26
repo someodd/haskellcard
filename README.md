@@ -13,7 +13,7 @@ Download the release binary which I think is a standalone Linux binary which may
 all kinds of Linux machines and then maybe use it like this:
 
 ```
-SDL_RENDER_DRIVER=software haskellcard deckquest
+SDL_RENDER_DRIVER=software haskellcard xmas
 ```
 
 I haven't tested this yet.
@@ -32,7 +32,7 @@ sudo apt install libsdl2-mixer-dev
 Then try running a *card deck* with this command:
 
 ```
-SDL_RENDER_DRIVER=software cabal run haskellcard-exe -- examples/deckquest
+SDL_RENDER_DRIVER=software cabal run haskellcard-exe -- examples/xmas
 ```
 
 ## Nix
@@ -44,7 +44,7 @@ environment and reproducible builds.
 Run with something like:
 
 ```
-SDL_RENDER_DRIVER=software nix run .#haskellcard -- examples/deckquest
+SDL_RENDER_DRIVER=software nix run .#haskellcard -- examples/xmas
 ```
 
 ### Tests and Environment

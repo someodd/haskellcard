@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+  * Issue #2 on GitHub: if loading the carddeck as a zip the temporary directory the zip
+    was extracted into would be left, which would lead to errors when the card deck was
+    loaded again and it tried to create a temporary directory to extract to and the
+    directory already exists. Resolved by both checking if the temporary directory already
+    exists first (and removing if it does) and also cleaning up the temporary directory
+    before quitting, basically
+
 ## [0.1.0.0] - 2023-12-25 (Christmas)
 
 First release, initially released as a private invite-only release on Christmas Day.

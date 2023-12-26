@@ -83,6 +83,7 @@ executable haskellcard-exe
   build-depends:
       haskellcard
     , base
+    , directory
   default-language: GHC2021
 
 data-files: test/mocks/animation.zip

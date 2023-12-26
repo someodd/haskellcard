@@ -57,11 +57,11 @@ import System.Directory (
     doesDirectoryExist,
     doesFileExist,
     getTemporaryDirectory,
-    listDirectory,
-    removeDirectoryRecursive,
+    listDirectory, removeDirectoryRecursive
  )
 import System.FilePath (takeBaseName, takeExtensions, (</>))
 import System.IO.Error (catchIOError)
+import Control.Exception (catch, SomeException)
 
 import DeckFormat.DeckFormat (Card, CardDeck (CardDeck), DeckMeta)
 import DeckFormat.Errors (
@@ -69,6 +69,8 @@ import DeckFormat.Errors (
     DeckLoadError (..),
     DeckLoader,
  )
+import Control.Arrow (second)
+import Control.Monad (when)
 
 {- | The different directories in a card deck.
 
@@ -265,18 +267,26 @@ checkExtensionWhitelist dirPath whitelist = case whitelist of
 {- | Load a card deck from a path.
 
 The path may be a directory or a zip file.
+
 -}
-loadCardDeck :: FilePath -> IO (Either DeckLoadError CardDeck)
+loadCardDeck
+    :: FilePath
+    -> IO (Either DeckLoadError (CardDeck, Maybe FilePath))
+    -- ^ The 'FilePath' is the temporary directory the zip file was extracted to (if any).
 loadCardDeck baseFilePath = do
     exists <- doesDirectoryExist baseFilePath
     if exists
-        then loadDataFromDirectory baseFilePath
+        then do
+            result <- loadDataFromDirectory baseFilePath
+            return $ fmap (, Nothing) result
         else do
             let
                 zipFilePath = baseFilePath ++ ".carddeck.zip"
             isZipFile <- doesFileExist zipFilePath
             if isZipFile
-                then catchIOError (loadDataFromZip zipFilePath) handleIOError
+                then do
+                    result <- catchIOError (loadDataFromZip zipFilePath) handleIOErrorZip
+                    return $ fmap (second Just) result
                 else
                     return
                         . Left
@@ -285,10 +295,15 @@ loadCardDeck baseFilePath = do
                         $ "Neither a directory nor a zip file exists for: "
                         ++ baseFilePath
 
+handleIOErrorZip :: IOError -> IO (Either DeckLoadError (CardDeck, FilePath))
+handleIOErrorZip e = return . Left $ DeckLoadCardError $ FileReadError $ show e
+
 {- | Basically a wrapper for 'loadDataFromDirectory', but it can extract a zip file to a
 temporary directory, then pass that directory to 'loadDataFromDirectory'.
+
+Returns the loaded 'CardDeck' and the '
 -}
-loadDataFromZip :: FilePath -> IO (Either DeckLoadError CardDeck)
+loadDataFromZip :: FilePath -> IO (Either DeckLoadError (CardDeck, FilePath))
 loadDataFromZip filePath = do
     tempDir <- getTemporaryDirectory >>= (`createUniqueTempDir` "carddeck")
     bytes <- B.readFile filePath
@@ -296,15 +311,18 @@ loadDataFromZip filePath = do
         archive = Zip.toArchive bytes
     Zip.extractFilesFromArchive [Zip.OptDestination tempDir] archive
     result <- loadDataFromDirectory tempDir
-    --removeDirectoryRecursive tempDir
-    return result
+    return $ fmap (, tempDir) result
 
 createUniqueTempDir :: FilePath -> String -> IO FilePath
 createUniqueTempDir tempDir prefix = do
-    let
-        dirPath = tempDir </> prefix
+    let dirPath = tempDir </> prefix
+    dirExists <- doesDirectoryExist dirPath
+    when dirExists $ removeDirectoryRecursive dirPath `catch` handleRemoveException
     createDirectory dirPath
     return dirPath
+
+handleRemoveException :: SomeException -> IO ()
+handleRemoveException e = putStrLn $ "Warning: Unable to remove existing directory: " ++ show e
 
 {- | Load a card deck from a directory.
 
@@ -374,5 +392,4 @@ loadMetadata metaPath = do
         Left err -> return $ Left (DeckLoadCardError $ JsonParseError err)
         Right meta -> return $ Right meta
 
-handleIOError :: IOError -> IO (Either DeckLoadError CardDeck)
-handleIOError e = return . Left $ DeckLoadCardError $ FileReadError $ show e
+
