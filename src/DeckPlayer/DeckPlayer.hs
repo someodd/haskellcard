@@ -14,12 +14,13 @@ import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Word (Word32)
 import Foreign.C.Types (CInt)
-import SDL
+import SDL hiding (Windowed)
 import SDL.Font qualified as Font
 import SDL.Mixer qualified as Mix
 import Data.Maybe (fromMaybe, isJust, fromJust)
 
 import DeckFormat.DeckFormat
+import DeckPlayer.Input.KeyMap (emptyKeyTimes, performAllKeyStateMapActionFunctions, KeyTimes)
 import DeckPlayer.Audio
 import DeckPlayer.Draw
 import DeckPlayer.Scripting
@@ -28,6 +29,18 @@ import DeckPlayer.TweenTransform
 import DeckPlayer.Assets
 import DeckFormat.Structure (DeckDirectory(..), titleCardName, deckLookup)
 import DeckPlayer.Animated (updateFancyTextureFrame)
+import DeckPlayer.Renderer ( presentTarget ) 
+import DeckPlayer.Input.KeyMappings (keyMappings)
+
+{- | Texture on which everything for a card gets drawn.
+
+This makes it easier to handle things like card transitions and scaling/fullscreen.
+
+-}
+offScreenRenderTarget :: Renderer -> (CInt, CInt) -> IO Texture
+offScreenRenderTarget renderer (textureWidth, textureHeight) = do
+    -- Create a texture to use as an off-screen render target
+    createTexture renderer RGBA8888 TextureAccessTarget (V2 textureWidth textureHeight)
 
 {- | Handle/perform an 'Action', possibly conditionally.
 
@@ -113,6 +126,7 @@ hookMouseClickObject renderer deckState cardDeck deckPath' (x, y) obj = do
             return $ deckStateHoveredObjects
                 .~ Set.delete (show obj) (deckState ^. deckStateHoveredObjects) $ deckState
 
+-- FIXME: move to an input module like mouse?
 hookMouseHoverObject :: MouseEventProcessor
 hookMouseHoverObject renderer deckState cardDeck deckPath' (x, y) obj = do
     insideObject <- isInsideObject renderer (deckState ^. deckStateAssetRegistry) deckPath' (x, y) obj
@@ -181,21 +195,41 @@ processMouseEvents hookFunction renderer cardDeck deckPath initialDeckState obje
             currentState
             objs
 
-eventLoopDispatcher
-    :: Renderer -> FilePath -> DeckState -> CardDeck -> [Event] -> IO DeckState
-eventLoopDispatcher renderer deckPath deckState cardDeck events = do
+{- | Adjust a mouse coordinate based on the current display settings.
+
+This is used to translate a mouse coordinate based on the current display settings. For
+example, if full screen we need to adjust for the scale factor and the offset of the top
+left.
+
+-}
+adjustedMouseCoord :: Renderer -> (CInt, CInt) -> Rectangle CInt -> IO (CInt, CInt)
+adjustedMouseCoord renderer coord renderArea = do
+    scaleFactor <- get $ rendererScale renderer
+    -- now adjust the mouse coord based on the scale factor
     let
-        mouseClickEvents =
-            [ (fromIntegral x, fromIntegral y)
-            | e@(MouseButtonEvent (MouseButtonEventData _ Pressed _ _ _ (P (V2 x y)))) <-
-                map eventPayload events
-            ]
-        mouseMotionEvents =
-            [ (fromIntegral x, fromIntegral y)
-            | e@(MouseMotionEvent (MouseMotionEventData _ _ _ (P (V2 x y)) _)) <-
-                map eventPayload events
-            ]
-        (_, currentCard) = deckState ^. deckStateCurrentCard
+        (x, y) = coord
+        (V2 scaleX scaleY) = scaleFactor
+        (Rectangle (P (V2 offsetX offsetY)) _) = renderArea
+    return
+        ( round $ (fromIntegral x / scaleX) - (fromIntegral offsetX)
+        , round $ (fromIntegral y / scaleY) - (fromIntegral offsetY)
+        )
+
+eventLoopDispatcher
+    :: Renderer -> FilePath -> DeckState -> CardDeck -> [Event] -> Rectangle CInt -> IO DeckState
+eventLoopDispatcher renderer deckPath deckState cardDeck events renderToArea = do
+    -- FIXME: translate coordinates based on scale factor/full screen, etc.
+    mouseClickEvents <- sequence
+        [ adjustedMouseCoord renderer (fromIntegral x, fromIntegral y) renderToArea
+        | e@(MouseButtonEvent (MouseButtonEventData _ Pressed _ _ _ (P (V2 x y)))) <-
+            map eventPayload events
+        ]
+    mouseMotionEvents <- sequence
+        [ adjustedMouseCoord renderer (fromIntegral x, fromIntegral y) renderToArea
+        | e@(MouseMotionEvent (MouseMotionEventData _ _ _ (P (V2 x y)) _)) <-
+            map eventPayload events
+        ]
+    let (_, currentCard) = deckState ^. deckStateCurrentCard
 
     case currentCard ^. cardObjects of
         Nothing -> return deckState
@@ -249,26 +283,41 @@ playDeck deck = do
     window <- createWindow (T.pack $ deck ^. deckMeta . metaName) windowConfig
     renderer <- createRenderer window (-1) defaultRenderer
 
-    let initialCard = deck ^. deckTitleCard
-    assetRegistry <- loadAssets renderer (deck ^. deckPath) (deck ^. deckMeta) (titleCardName, initialCard)
-    let
-        deckState = DeckState (titleCardName, initialCard) Set.empty Set.empty assetRegistry
+    (deckState, initialCard) <- initializeDeckState renderer deck
 
     _ <- setCursor'
         (deckState ^. deckStateAssetRegistry)
         (deck ^. deckMeta . metaCursorDefaults . cursorDefaultsNormal)
 
-    -- FIXME: update queue based on title card!
-    -- could abstract this!
+    let (nativeWidth, nativeHeight) = deckState ^. deckStateDisplaySettings . displaySettingsNativeResolution
+    targetTexture <- offScreenRenderTarget renderer (fromIntegral nativeWidth, fromIntegral nativeHeight)
+
     musicQueue <- initializeMusicQueueVar initialCard (deckState ^. deckStateAssetRegistry)
-    --Mix.whenMusicFinished $ musicFinishedCallback musicQueueVar
 
-    appLoop renderer musicQueue deck deckState 0 window
+    appLoop renderer musicQueue deck deckState 0 window emptyKeyTimes targetTexture
 
-    Font.quit -- Quit SDL2-ttf
+    -- Clean up, free resources, quit
+    Font.quit
+    destroyTexture targetTexture
     destroyRenderer renderer
     destroyWindow window
     quit
+
+{- | Returns the initial 'DeckState' and the initial card.
+
+-}
+initializeDeckState :: Renderer -> CardDeck -> IO (DeckState, Card)
+initializeDeckState renderer deck = do
+    let initialCard = deck ^. deckTitleCard
+    assetRegistry <- loadAssets renderer (deck ^. deckPath) (deck ^. deckMeta) (titleCardName, initialCard)
+    let
+        nativeResolution = deck ^. deckMeta . metaResolution
+        displaySettings = DisplaySettings
+            { _displaySettingsScaleType = Windowed nativeResolution
+            , _displaySettingsNativeResolution = nativeResolution
+            }
+        deckState = DeckState (titleCardName, initialCard) Set.empty Set.empty assetRegistry displaySettings
+    return (deckState, initialCard)
 
 -- FIXME: does not need IO + should be renamed and redone a bit.
 initializeMusicQueueVar :: Card -> AssetRegistry -> IO MusicQueue
@@ -346,6 +395,7 @@ updateRegistryIfCurrentCardDifferent renderer preserveTheseAssetsKeys deck deckS
 currentCardChanged :: DeckState -> Bool
 currentCardChanged deckState = fst (deckState ^. deckStateCurrentCard) /= (let (AssetRegistry cardAssetPath _) = deckState ^. deckStateAssetRegistry in cardAssetPath)
 
+-- FIXME: how about move this to a musicqueue module?
 -- FIXME: does not need IO anymore, rename
 -- | Get the asset keys belonging to the current song and next song.
 musicQueueVarAssetKeys :: MusicQueue -> IO [(DeckDirectory, FilePath)]
@@ -382,14 +432,20 @@ modifyAssetRegistry totalTime (AssetImage (AnimatedImage fancyTexture@(_, animat
     AssetImage $ AnimatedImage $ updateFancyTextureFrame totalTime fancyTexture
 modifyAssetRegistry _ asset = asset
 
+
+
 {- | The main loop of the application.
 
 This is where the main loop of the application is defined. It is responsible for
 updating the state, drawing the current card, and handling events.
+
 -}
-appLoop :: Renderer -> MusicQueue -> CardDeck -> DeckState -> Word32 -> Window -> IO ()
-appLoop renderer musicQueue deck deckState lastTime window = do
+appLoop :: Renderer -> MusicQueue -> CardDeck -> DeckState -> Word32 -> Window -> KeyTimes -> Texture -> IO ()
+appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTexture = do
     currentTime <- ticks -- I think delta time can be caculated with: fromIntegral (currentTime - lastTime) / 1000.0
+
+    -- Set the texture as the render target
+    rendererRenderTarget renderer $= Just targetTexture
 
     -- Update the registry/do "garbage collection" for assets. We get music queue asset
     -- keys here because we want to preserve them from being unloaded by the "garbage
@@ -413,6 +469,7 @@ appLoop renderer musicQueue deck deckState lastTime window = do
     -- Update tweens/update the deckState's current card's objects
     let deckStateTweenUpdate = updateDeckStateTweens deckStateAnimationsUpdate currentTime
 
+    -- FIXME: pass targetTExture
     -- Draw current card
     _ <- drawCard
         renderer
@@ -422,12 +479,17 @@ appLoop renderer musicQueue deck deckState lastTime window = do
         (deck ^. deckMeta . metaTextDefaults)
         (snd $ deckStateTweenUpdate ^. deckStateCurrentCard)
 
-    -- Update screen
-    present renderer
+    -- Update screen, draw the targetTexture.
+    renderToArea <- presentTarget renderer window targetTexture (deck ^. deckMeta . metaResolution)
 
+    -- come before update screen?
     -- Handle events (including checking for quit)
+    -- FIXME: if fullscreen need to translate mouse coords!
     events <- pollEvents
     let quitEvent = elem QuitEvent $ map eventPayload events
-    deckState' <- eventLoopDispatcher renderer (deck ^. deckPath) deckStateTweenUpdate deck events
+    deckState' <- eventLoopDispatcher renderer (deck ^. deckPath) deckStateTweenUpdate deck events renderToArea
+    -- handle key input (mapping abstraction)
+    keyFunc <- SDL.getKeyboardState
+    (finalDeckState, finalKeyTimes) <- performAllKeyStateMapActionFunctions renderer window keyFunc currentTime (fromIntegral (currentTime - lastTime) / 1000.0) keyTimes keyMappings deckState'
 
-    unless quitEvent $ appLoop renderer newMusicQueue deck deckState' currentTime window
+    unless quitEvent $ appLoop renderer newMusicQueue deck finalDeckState currentTime window finalKeyTimes targetTexture

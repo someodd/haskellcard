@@ -30,14 +30,17 @@ library
       DeckFormat.Errors
       DeckFormat.Helpers
       DeckFormat.ExtractAssets
+      DeckPlayer.Renderer
       DeckPlayer.DeckPlayer
       DeckPlayer.Audio
       DeckPlayer.Draw
       DeckPlayer.Animated
       DeckPlayer.Scripting
       DeckPlayer.TypesConstants
+      DeckPlayer.Input.KeyMappings
       DeckPlayer.TweenTransform
       DeckPlayer.Assets
+      DeckPlayer.Input.KeyMap
   other-modules:
       Paths_haskellcard
   hs-source-dirs:
