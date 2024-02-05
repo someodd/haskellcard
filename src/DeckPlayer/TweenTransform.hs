@@ -52,7 +52,9 @@ lerpTuple (x1, y1) (x2, y2) t =
 tween :: Tween -> Float -> Transformation
 tween tween' progress =
     let
-        t = (1 - cos (progress * pi)) / 2 -- Creates a smooth oscillation
+        t = if tween' ^. tweenOscillate
+            then 0.5 * (1 - cos (2 * pi * progress)) -- Oscillation logic
+            else (1 - cos (progress * pi)) / 2 -- Original smooth interpolation
     in
         Transformation
             { _transformPosition =
@@ -71,6 +73,7 @@ tween tween' progress =
                     (tween' ^. tweenEnd . transformRotate)
                     t
             }
+
 
 {- | Calculate progress of the tween (how far into the tween, like are we 75% through the
 animation?) based on tween's duration and the total time (ticks).

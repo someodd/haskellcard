@@ -1,5 +1,7 @@
 {- | This module is responsible for handling the more interactive parts of the deck.
 
+This includes collisions.
+
 -}
 module DeckPlayer.Action where
 
