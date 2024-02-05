@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Fullscreen feature and hopefully window rescaling support
   * Key support
   * Actual support for tween oscillation and scale tweening (might count as a fix)
+  * Ability to store/retrieve arbitrary data using Lua scripts
+  * Draw text from Lua script
+  * On load actions for a card
 
 ### Fixed
 
@@ -24,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-  * Using new record syntax, meaning shorter names?
+...
 
 ## [0.1.0.0] - 2023-12-25 (Christmas)
 

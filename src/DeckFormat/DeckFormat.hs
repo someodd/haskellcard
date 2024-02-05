@@ -167,6 +167,7 @@ data Card = Card
     , _cardObjects :: Maybe [CardObject] -- what if NewConditional [CardObject]? instead of using onAppearConditions?
     , _cardMusic :: Maybe CardMusic
     , _cardText :: Maybe CardText -- could be [CardText]
+    , _cardOnLoad :: Maybe [Action]
     }
     deriving (Show, Generic, FromJSON, Eq, Data, Typeable)
 

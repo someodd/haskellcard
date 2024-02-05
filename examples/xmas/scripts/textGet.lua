@@ -1,0 +1,1 @@
+drawText(getLuaStore())

@@ -20,6 +20,14 @@ import DeckPlayer.TypesConstants
 import DeckPlayer.Assets
 import DeckFormat.DeckFormat
 import DeckFormat.Structure (DeckDirectory(..), titleCardName, deckLookup)
+import Control.Monad (foldM)
+
+{- | A wrapper for performing a series of actions, accumulating the state. 
+
+-}
+handleActions :: Renderer -> [Action] -> CardDeck -> DeckState -> IO DeckState
+handleActions renderer actions deck deckState =
+    foldM (\state action -> handleAction renderer action deck state) deckState actions
 
 {- | Handle/perform an 'Action', possibly conditionally.
 

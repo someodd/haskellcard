@@ -1,0 +1,1 @@
+setLuaStore("Lua store test.")

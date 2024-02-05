@@ -1,0 +1,41 @@
+{
+    "_cardName": "Merry Christmas!",
+    "_cardBackgrounds": [{"_cardBackgroundAsset": "outside.zip"}, {"_cardBackgroundAsset": "outside_overlay.png"}],
+"_cardOnLoad":
+	[
+		{
+			"tag": "ActionTypeScript",
+			"contents": {"_actionScriptAsset": "set.lua"}
+		}
+	],
+    "_cardObjects":
+    	[
+    		{
+    			"_objectObjectAsset": "tux.zip",
+    			"_objectPosition": [538,377],
+    			"_objectOnClick": [],
+    			"_objectOnHover": []
+    		},
+    		{
+    			"_objectObjectAsset": "door.png",
+    			"_objectPosition": [180,344],
+    			"_objectOnClick":
+    				[
+    					{
+    						"tag": "ActionTypeLink",
+    						"contents": {"_linkCard": "two.card"}
+					}
+				],
+    			"_objectOnHover":
+    				[
+    					{
+    						"tag": "ActionTypeScript",
+    						"contents": {"_actionScriptAsset": "sound.lua"}
+					}
+				]
+    		}
+	],
+    "_cardMusic": {"_musicLoop": true, "_musicInterrupt": true, "_musicMusicAsset": "jinglebells.ogg"},
+    "_cardText": {"_text": "This is a test of text system."}
+}
+

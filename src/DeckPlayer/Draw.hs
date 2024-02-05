@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module DeckPlayer.Draw (drawCard) where
+module DeckPlayer.Draw (drawCard, drawText) where
 
 import qualified SDL.Font as Font
 import System.FilePath ((</>))
@@ -43,6 +43,8 @@ drawBackgrounds render assetRegistry deckRoot card = do
         let TextureInfo { textureWidth = bgW, textureHeight = bgH } = textureInfo
         copy render bgTexture Nothing (Just (Rectangle (P (V2 0 0)) (V2 bgW bgH)))
 
+-- FIXME: maybe this is more of a wrapper called drawCardText
+-- FIXME: it's stupid that this takes "TextDefaults"
 -- FIXME: use assetLookup
 drawText :: Renderer -> FilePath -> TextDefaults -> CardText -> IO ()
 drawText renderer deckPath textDefaults cardText' = do

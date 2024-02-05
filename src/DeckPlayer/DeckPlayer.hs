@@ -33,6 +33,7 @@ import DeckPlayer.Renderer
 import DeckPlayer.Input.KeyMappings (keyMappings)
 import DeckPlayer.Input.Mouse
 import qualified Data.Aeson as Aeson
+import DeckPlayer.Action (handleActions)
 
 
 {- | Play a card deck.
@@ -186,7 +187,21 @@ modifyAssetRegistry totalTime (AssetImage (AnimatedImage fancyTexture@(_, animat
     AssetImage $ AnimatedImage $ updateFancyTextureFrame totalTime fancyTexture
 modifyAssetRegistry _ asset = asset
 
+{- | If the current card is different from the last iteration and the current card has
+onload actions, then perform the onload actions.
 
+-}
+performOnloadActions :: Renderer -> CardDeck -> DeckState -> IO DeckState
+performOnloadActions renderer deck deckState = do
+    let
+        currentCard = snd $ deckState ^. deckStateCurrentCard
+        onloadActions = fromMaybe [] $ currentCard ^. cardOnLoad
+    if currentCardChanged deckState
+        then do
+            _ <- handleActions renderer onloadActions deck deckState
+            pure deckState
+        else do
+            pure deckState
 
 {- | The main loop of the application.
 
@@ -213,6 +228,9 @@ appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTextur
     -- Clear screen
     rendererDrawColor renderer $= defaultBackgroundColor
     clear renderer
+
+    -- will perform the onload actions if the current card has changed
+    _ <- performOnloadActions renderer deck deckStateRegistryChecked
 
     -- Update all animations in the registry
     -- helper function shuld amke i think (abstract out)
