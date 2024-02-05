@@ -18,6 +18,9 @@ import Control.Monad.IO.Class (liftIO)
 import Data.HashMap.Strict qualified as HashMap
 import Data.Maybe (fromJust)
 import HsLua qualified
+import SDL (Renderer)
+import qualified HsLua.Aeson as LuaAeson (pushValue, peekValue) 
+import Data.Aeson (Value)
 
 import Data.ByteString (ByteString)
 import DeckFormat.DeckFormat (CardDeck, deckCards, deckPath)
@@ -26,7 +29,7 @@ import DeckPlayer.Assets (Asset (..), Audio(..), AssetRegistry, assetLookup, upd
 import DeckPlayer.Audio (playSound)
 import DeckPlayer.TypesConstants (deckStateAssetRegistry)
 import DeckPlayer.TypesConstants qualified as TypesConstants
-import SDL (Renderer)
+
 
 getOrUpdateAssets renderer assetRegistry' deckStateMVar deckPath deckDirectory assetPath assetConsumingFunction resultsReturned = do
     case assetLookup deckDirectory assetPath assetRegistry' of
@@ -119,6 +122,19 @@ checkFlag deckState' = do
     HsLua.pushboolean isSet
     return 1
 
+-- Function to store arbitrary Lua data in DeckState
+setLuaStore :: MVar TypesConstants.DeckState -> HsLua.Lua HsLua.NumResults
+setLuaStore deckStateMVar = do
+    -- Read the current record from the MVar
+    record <- liftIO $ readMVar deckStateMVar
+    -- Extract the new value from the Lua stack
+    resultNewValue <- HsLua.runPeek $ LuaAeson.peekValue (-1)
+    case resultNewValue of
+        HsLua.Success val -> liftIO $ modifyMVar_ deckStateMVar (\_ -> return $ TypesConstants.DeckState { TypesConstants._deckStateLuaStore = val })
+        HsLua.Failure errBytes _ -> error $ "Invalid JSON value: " ++ show errBytes
+    return 0 -- Number of results returned to Lua
+
+
 {- | Run a Lua script.
 
 This function is the main entry point for running Lua scripts.
@@ -146,6 +162,8 @@ runLuaScript renderer deck deckState scriptString = do
         HsLua.setglobal "setFlag"
         HsLua.pushHaskellFunction (checkFlag deckState)
         HsLua.setglobal "checkFlag"
+        HsLua.pushHaskellFunction (setLuaStore deckStateMVar)
+        HsLua.setglobal "setLuaStore"
         HsLua.dostring scriptString
     case status of
         HsLua.OK ->

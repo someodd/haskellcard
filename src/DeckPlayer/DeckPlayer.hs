@@ -32,6 +32,7 @@ import DeckPlayer.Animated (updateFancyTextureFrame)
 import DeckPlayer.Renderer
 import DeckPlayer.Input.KeyMappings (keyMappings)
 import DeckPlayer.Input.Mouse
+import qualified Data.Aeson as Aeson
 
 
 {- | Play a card deck.
@@ -97,7 +98,7 @@ initializeDeckState renderer deck = do
             { _displaySettingsScaleType = Windowed nativeResolution
             , _displaySettingsNativeResolution = nativeResolution
             }
-        deckState = DeckState (titleCardName, initialCard) Set.empty Set.empty assetRegistry displaySettings
+        deckState = DeckState (titleCardName, initialCard) Set.empty Set.empty assetRegistry displaySettings Aeson.Null
     return (deckState, initialCard)
 
 -- FIXME: does not need IO + should be renamed and redone a bit.
@@ -162,7 +163,6 @@ musicQueueVarAssetKeys musicQueue = do
             Just nextSong -> [(DirectoryMusic, nextSong ^. musicMusicAsset)]
     return $ currentSongAssetKey ++ nextSongAssetKey
 
--- FIXME: move?
 {- | Update the 'CardObject's' tweens in the 'DeckState'.
 
 -}

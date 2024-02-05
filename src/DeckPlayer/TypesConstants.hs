@@ -12,6 +12,7 @@ import Control.Lens
 import SDL hiding (Windowed)
  -- should i switch to lazy?
 import qualified Data.Set as Set
+import Data.Aeson (Value)
 
 import DeckFormat.DeckFormat
 import DeckPlayer.Assets
@@ -70,6 +71,9 @@ data DeckState = DeckState
     -- ^ Like a cache of loaded assets.
     , _deckStateDisplaySettings :: DisplaySettings
     --, _deckStateKeyTimes :: KeyTimes
+    , _deckStateLuaStore :: Value
+    -- ^ This allows Lua scripts to store arbitrary stateful information as an AESON
+    -- 'Value', since hslua-aeson is already a dependency. 
     }
 -- TODO: do i need a object state field? or should i just use current card... yeah...
 makeLenses ''DeckState -- this has to be loaded here because of issues with the fact that its used later in this same module...
