@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   * Fullscreen feature and hopefully window rescaling support
   * Key support
+  * Actual support for tween oscillation and scale tweening (might count as a fix)
 
 ### Fixed
 
