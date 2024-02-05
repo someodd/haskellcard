@@ -88,7 +88,6 @@ drawTitleText renderer deckRoot textDefaults card = do
     -- Draw the text
     copy renderer textTexture Nothing (Just (Rectangle textPos (V2 w h)))
 
--- Updated drawCard function
 drawCard :: Renderer -> AssetRegistry -> FilePath -> DeckState -> TextDefaults -> Card -> IO ()
 drawCard renderer assetRegistry deckRoot deckState' textDefaults card = do
     -- Draw the card's background(s) first
