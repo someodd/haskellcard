@@ -18,7 +18,7 @@ things.
 -}
 module DeckPlayer.TweenTransform (
     updateObjectsTween,
-    transformBasedOnTexture,
+    applyTransformation,
 ) where
 
 import Control.Lens ((&), (.~), (^.))
@@ -125,17 +125,19 @@ transformObjectPosition cardObject' (objW, objH) =
     in
         ((posX, posY), (scaledW, scaledH))
 
+-- FIXME: all it really needs is texture and position. can pass texture from animated. this is just a helper function that could go elsewhere too....
+-- image (current frame), then it will be much less tightly coupled. can add a helper elsewhere...
 {- | Return new position and dimensions based on applying the card's 'Transformation' onto
 itself.
 
 Performs a lookup to find the corresponding texture `Asset` associated with the
 `CardObject`. The texture is used for determining the CardObject image size.
 -}
-transformBasedOnTexture
+applyTransformation
     :: AssetRegistry
     -> CardObject
     -> IO ((Int, Int), (Int, Int), Texture)
-transformBasedOnTexture assetRegistry cardObject' = do
+applyTransformation assetRegistry cardObject' = do
     let
         objectTexture = assetLookup DirectoryObjects (cardObject' ^. objectObjectAsset) assetRegistry
     case objectTexture of

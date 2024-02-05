@@ -11,7 +11,7 @@ import qualified Data.HashMap.Strict as HashMap
 import DeckPlayer.Audio (playSound)
 import DeckPlayer.Scripting (runLuaScript)
 import Control.Lens ((^.))
-import DeckPlayer.TweenTransform (transformBasedOnTexture)
+import DeckPlayer.TweenTransform
 import Data.Maybe (fromJust, isJust)
 
 import DeckPlayer.TypesConstants
@@ -83,7 +83,7 @@ This accounts for 'Transformation'.
 -}
 isInsideObject :: Renderer -> AssetRegistry -> FilePath -> (CInt, CInt) -> CardObject -> IO Bool
 isInsideObject _ assetRegistry _ (x, y) obj = do
-    ((objX, objY), (objW, objH), _) <- transformBasedOnTexture assetRegistry obj
+    ((objX, objY), (objW, objH), _) <- applyTransformation assetRegistry obj
     let (objX', objY') = (fromIntegral objX, fromIntegral objY)
         (objW', objH') = (fromIntegral objW, fromIntegral objH)
     pure $ x >= objX' && x <= objX' + objW' && y >= objY' && y <= objY' + objH'

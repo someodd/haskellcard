@@ -162,6 +162,7 @@ musicQueueVarAssetKeys musicQueue = do
             Just nextSong -> [(DirectoryMusic, nextSong ^. musicMusicAsset)]
     return $ currentSongAssetKey ++ nextSongAssetKey
 
+-- FIXME: move?
 {- | Update the 'CardObject's' tweens in the 'DeckState'.
 
 -}

@@ -26,7 +26,7 @@ handleSDLErrorTextureInfo texture path e = do
 drawObjects :: Renderer -> AssetRegistry -> FilePath -> [CardObject] -> IO ()
 drawObjects renderer assetRegistry deckRoot cardObjects = do
     forM_ cardObjects $ \obj -> do
-        ( (posX, posY), (scaledW, scaledH), objTexture ) <- transformBasedOnTexture assetRegistry obj
+        ( (posX, posY), (scaledW, scaledH), objTexture ) <- applyTransformation assetRegistry obj
         let (posX', posY') = (fromIntegral posX, fromIntegral posY)
             (scaledW', scaledH') = (fromIntegral scaledW, fromIntegral scaledH)
         copy renderer objTexture Nothing (Just (Rectangle (P (V2 posX' posY')) (V2 scaledW' scaledH')))
