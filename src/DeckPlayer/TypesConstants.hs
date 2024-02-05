@@ -26,7 +26,6 @@ mouse keeps moving around inside the same object.
 -}
 type HoveredObjects = Set.Set String
 
--- FIXME: bad documentation
 {- | Flags can be used for all kinds of things.  You can use them to only do certain
 things if a flag is set.
     
@@ -51,7 +50,6 @@ data DisplaySettings = DisplaySettings
     }
 makeLenses ''DisplaySettings
 
--- FIXME: add meta?!
 {- | Only holds the relevant stateful information for the current game being played (for the deck player).
 
 May hold inventory and other information in the future.
@@ -75,22 +73,6 @@ data DeckState = DeckState
     }
 -- TODO: do i need a object state field? or should i just use current card... yeah...
 makeLenses ''DeckState -- this has to be loaded here because of issues with the fact that its used later in this same module...
-
-{-
-data AppState = AppState
-    { _appStateDeckState :: DeckState
-    , _appStateKeyTimes :: KeyTimes
-    , _deckStateHoveredObjects :: HoveredObjects
-    -- ^ if the string representation of an object is in here, that means it's currently
-    -- hovered over. the purpose of this is to prevent re-activating hover actions before
-    -- the mouse has left and re-entered.
-    , _deckStateFlags :: Flags
-    , _deckStateAssetRegistry :: AssetRegistry -- FIXME: should this be Maybe? It'd make saving/loading easier?
-    -- ^ Like a cache of loaded assets.
-    , _deckStateDisplaySettings :: DisplaySettings
-    }
-makeLenses ''AppState
--}
 
 -- | False if flag not set, True if flag set.
 checkFlag :: Flags -> String -> Bool
