@@ -38,6 +38,8 @@ library
       DeckPlayer.Scripting
       DeckPlayer.TypesConstants
       DeckPlayer.Input.KeyMappings
+      DeckPlayer.Input.Mouse
+      DeckPlayer.Action
       DeckPlayer.TweenTransform
       DeckPlayer.Assets
       DeckPlayer.Input.KeyMap

@@ -1,11 +1,21 @@
 {- | Handle things relevant to rendering but not necessarily drawing.
 
 -}
-module DeckPlayer.Renderer (presentTarget, renderToggleFullscreen) where
-import SDL (Renderer, Window, V2 (..), glGetDrawableSize, WindowMode (..), getWindowConfig, WindowConfig (..), setWindowMode, rendererScale, ($=), Rectangle(..), Texture, rendererRenderTarget, rendererDrawColor, V4 (V4), clear, get, windowSize, copy, present, Point (..))
-import Control.Lens ((^.))
+module DeckPlayer.Renderer (presentTarget, renderToggleFullscreen, offScreenRenderTarget) where
+import SDL (WindowMode (..))
 import qualified SDL.Video.Renderer as Renderer
 import Foreign.C (CInt)
+import SDL hiding (Windowed)
+
+{- | Texture on which everything for a card gets drawn.
+
+This makes it easier to handle things like card transitions and scaling/fullscreen.
+
+-}
+offScreenRenderTarget :: Renderer -> (CInt, CInt) -> IO Texture
+offScreenRenderTarget renderer (textureWidth, textureHeight) = do
+    -- Create a texture to use as an off-screen render target
+    createTexture renderer RGBA8888 TextureAccessTarget (V2 textureWidth textureHeight)
 
 {- | Handle rendering the target texture to the screen. 
 
