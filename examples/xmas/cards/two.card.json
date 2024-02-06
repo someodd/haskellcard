@@ -101,7 +101,6 @@
 				]
     		}
 	],
-    "_cardMusic": {"_musicLoop": false, "_musicInterrupt": false, "_musicMusicAsset": "Oh_Christmas_Tree.ogg"},
-    "_cardText": {"_text": "This is a test of text system.", "_textSize": 22, "_textColor": [255, 255, 255]}
+    "_cardMusic": {"_musicLoop": false, "_musicInterrupt": false, "_musicMusicAsset": "Oh_Christmas_Tree.ogg"}
 }
 

@@ -36,6 +36,6 @@
     		}
 	],
     "_cardMusic": {"_musicLoop": true, "_musicInterrupt": true, "_musicMusicAsset": "jinglebells.ogg"},
-    "_cardText": {"_text": "This is a test of text system."}
+    "_cardText": {"_text": "This is a test of text system.", "_textSize": 22, "_textColor": [0, 255, 255]}
 }
 
