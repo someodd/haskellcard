@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module DeckPlayer.Draw (drawCard, drawText) where
+module DeckPlayer.Draw (drawCard, drawText, drawTextDefaults) where
 
 import qualified SDL.Font as Font
 import System.FilePath ((</>))
@@ -18,6 +18,8 @@ import DeckPlayer.TweenTransform
 import DeckPlayer.Assets
 import DeckFormat.Structure
 import Control.Exception (catch)
+import Foreign.C (CInt)
+import Data.Maybe (fromMaybe)
 
 handleSDLErrorTextureInfo :: Texture -> FilePath -> SDLException -> IO TextureInfo
 handleSDLErrorTextureInfo texture path e = do
@@ -43,34 +45,59 @@ drawBackgrounds render assetRegistry deckRoot card = do
         let TextureInfo { textureWidth = bgW, textureHeight = bgH } = textureInfo
         copy render bgTexture Nothing (Just (Rectangle (P (V2 0 0)) (V2 bgW bgH)))
 
--- FIXME: maybe this is more of a wrapper called drawCardText
--- FIXME: it's stupid that this takes "TextDefaults"
--- FIXME: use assetLookup
-drawText :: Renderer -> FilePath -> TextDefaults -> CardText -> IO ()
-drawText renderer deckPath textDefaults cardText' = do
-    -- Load font for drawing text
-    let fontPathHelper fontFileName = deckPath </> "fonts" </> fontFileName
-    font <- Font.load
-        (maybe (fontPathHelper $ textDefaults ^. textDefaultsFontAsset) fontPathHelper (cardText' ^. textFontAsset))
-        (maybe (textDefaults ^. textDefaultsSize) id (cardText' ^. textSize))
-    let
-        -- support rgba? TODO
-        (r, g, b) = maybe (textDefaults ^. textDefaultsColor) id (cardText' ^. textColor)
-        color = V4 (fromIntegral r) (fromIntegral g) (fromIntegral b) 255
-    textSurface <- Font.solid font color (T.pack $ cardText' ^. text)
+{- | Basic text drawing.
+
+= Note(s)
+
+There's no 'PointSize' argument yet, because the way font loading works with the library
+I'm currently using is that a font gets loaded at a specific size.
+
+-}
+drawText :: Renderer -> AssetRegistry -> String -> (Int, Int, Int) -> (CInt, CInt) -> Bool -> T.Text -> IO ()
+drawText renderer assets fontName fontColor@(redValue, greenValue, blueValue) position@(positionX, positionY) scrollbox text = do
+    let (AssetFont font) = assetLookupError DirectoryFonts fontName assets
+        color = V4 (fromIntegral redValue) (fromIntegral greenValue) (fromIntegral blueValue) 255
+    textSurface <- Font.solid font color text
     textTexture <- createTextureFromSurface renderer textSurface
-    Font.free font
 
     -- Get texture dimensions for text
     TextureInfo {textureWidth = w, textureHeight = h} <- queryTexture textTexture
 
     -- Set where to draw the text
-    let
-        (x, y) = maybe (textDefaults ^. textDefaultsPosition) id (cardText' ^. textPosition)
-        textPos = P $ V2 (fromIntegral x) (fromIntegral y)
+    let textPos = P $ V2 positionX positionY
 
     -- Draw the text
     copy renderer textTexture Nothing (Just (Rectangle textPos (V2 w h)))
+
+{- | Wrapper for 'drawText' which will default to values from 'TextDefaults' if the argument isn't defined.
+
+-}
+drawTextDefaults
+    :: Renderer
+    -> TextDefaults
+    -> AssetRegistry
+    -> Maybe String
+    -> Maybe (Int, Int, Int)
+    -> Maybe (CInt, CInt)
+    -> Maybe Bool
+    -> T.Text
+    -> IO ()
+drawTextDefaults renderer textDefaults assets maybeFontName maybeFontColor maybeFontPosition maybeTextBox text =
+    let
+        fontName = fromMaybe (textDefaults ^. textDefaultsFontAsset) maybeFontName
+        fontColor = fromMaybe (textDefaults ^. textDefaultsColor) maybeFontColor
+        position = fromMaybe (bimap fromIntegral fromIntegral $ textDefaults ^. textDefaultsPosition) maybeFontPosition
+        scrollbox = fromMaybe (textDefaults ^. textDefaultsScrollbox) maybeTextBox
+    in
+        drawText renderer assets fontName fontColor position scrollbox text
+
+-- FIXME: maybe delete!
+-- FIXME: maybe this is more of a wrapper called drawCardText
+-- FIXME: it's stupid that this takes "TextDefaults"
+-- FIXME: use assetLookup
+drawCardText :: Renderer -> AssetRegistry -> TextDefaults -> CardText -> IO ()
+drawCardText renderer assets textDefaults cardText' = do
+    drawTextDefaults renderer textDefaults assets Nothing Nothing Nothing Nothing (T.pack $ cardText' ^. text)
 
 -- COULD BE ABSTRACTED TO TAKE TEXT TO DRAW AND AT POSITION...
 drawTitleText :: Renderer -> FilePath -> TextDefaults -> Card -> IO ()
@@ -99,5 +126,5 @@ drawCard renderer assetRegistry deckRoot deckState' textDefaults card = do
     -- and other places too.
     _ <- maybe (pure ()) (drawObjects renderer assetRegistry deckRoot) (card ^. cardObjects >>= Just . filterOnAppearConditions deckState')
 
-    _ <- drawTitleText renderer deckRoot textDefaults card
-    maybe (pure ()) (drawText renderer deckRoot textDefaults) (card ^. cardText)
+    drawTitleText renderer deckRoot textDefaults card
+    maybe (pure ()) (drawCardText renderer assetRegistry textDefaults) (card ^. cardText)

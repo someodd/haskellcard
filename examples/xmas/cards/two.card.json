@@ -1,7 +1,7 @@
 {
     "_cardName": "Inside the room",
     "_cardBackgrounds": [{"_cardBackgroundAsset": "inside.png"}],
-"_cardOnLoad":
+"_cardEachLoop":
 	[
 		{
 			"tag": "ActionTypeScript",

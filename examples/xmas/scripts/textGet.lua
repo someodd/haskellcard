@@ -1,1 +1,2 @@
-drawText(getLuaStore())
+something = getLuaStore()
+drawText(something)

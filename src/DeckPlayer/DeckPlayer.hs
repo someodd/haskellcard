@@ -31,7 +31,7 @@ import DeckFormat.Structure (DeckDirectory(..), titleCardName, deckLookup)
 import DeckPlayer.Animated (updateFancyTextureFrame)
 import DeckPlayer.Renderer
 import DeckPlayer.Input.KeyMappings (keyMappings)
-import DeckPlayer.Input.Mouse
+import DeckPlayer.Input.Mouse ( eventLoopDispatcher, setCursor' )
 import qualified Data.Aeson as Aeson
 import DeckPlayer.Action (handleActions)
 
@@ -147,6 +147,8 @@ updateRegistryIfCurrentCardDifferent renderer preserveTheseAssetsKeys deck deckS
             return deckState
 
 -- | Checks if the current card has changed.
+--
+-- Does not detect if it's the initial card first iteration.
 currentCardChanged :: DeckState -> Bool
 currentCardChanged deckState = fst (deckState ^. deckStateCurrentCard) /= (let (AssetRegistry cardAssetPath _) = deckState ^. deckStateAssetRegistry in cardAssetPath)
 
@@ -188,7 +190,8 @@ modifyAssetRegistry totalTime (AssetImage (AnimatedImage fancyTexture@(_, animat
 modifyAssetRegistry _ asset = asset
 
 {- | If the current card is different from the last iteration and the current card has
-onload actions, then perform the onload actions.
+onload actions, then perform the onload actions. But also, if it's the first iteration
+in general/the first time the card is shown.
 
 -}
 performOnloadActions :: Renderer -> CardDeck -> DeckState -> IO DeckState
@@ -196,12 +199,24 @@ performOnloadActions renderer deck deckState = do
     let
         currentCard = snd $ deckState ^. deckStateCurrentCard
         onloadActions = fromMaybe [] $ currentCard ^. cardOnLoad
-    if currentCardChanged deckState
-        then do
-            _ <- handleActions renderer onloadActions deck deckState
-            pure deckState
+    -- if it's the first iteration of a card change or its the first iteration of the first card...
+    -- FIXME: extract to isnewcard?
+    if currentCardChanged deckState || not (currentCardChanged deckState) && (snd (deckState ^. deckStateCurrentCard) == (deck ^. deckTitleCard))
+        then
+            handleActions renderer onloadActions deck deckState
         else do
             pure deckState
+
+{- | Perform some action(s) every iteration.
+
+-}
+performEachLoopActions :: Renderer -> CardDeck -> DeckState -> IO DeckState
+performEachLoopActions renderer deck deckState = do
+    let
+        currentCard = snd $ deckState ^. deckStateCurrentCard
+        onTickActions = fromMaybe [] $ currentCard ^. cardEachLoop
+    _ <- handleActions renderer onTickActions deck deckState
+    pure deckState
 
 {- | The main loop of the application.
 
@@ -230,13 +245,14 @@ appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTextur
     clear renderer
 
     -- will perform the onload actions if the current card has changed
-    _ <- performOnloadActions renderer deck deckStateRegistryChecked
+    -- FIXME: needs to get new state
+    deckStateAfterOnloadActions <- performOnloadActions renderer deck deckStateRegistryChecked
 
     -- Update all animations in the registry
     -- helper function shuld amke i think (abstract out)
     let
-        newRegistryAnimateUpdate = updateAnimations (deckStateRegistryChecked ^. deckStateAssetRegistry) (fromIntegral currentTime :: Float)
-        deckStateAnimationsUpdate = deckStateRegistryChecked & deckStateAssetRegistry .~ newRegistryAnimateUpdate
+        newRegistryAnimateUpdate = updateAnimations (deckStateAfterOnloadActions ^. deckStateAssetRegistry) (fromIntegral currentTime :: Float)
+        deckStateAnimationsUpdate = deckStateAfterOnloadActions & deckStateAssetRegistry .~ newRegistryAnimateUpdate
 
     -- Update tweens/update the deckState's current card's objects
     let deckStateTweenUpdate = updateDeckStateTweens deckStateAnimationsUpdate currentTime
@@ -251,6 +267,11 @@ appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTextur
         (deck ^. deckMeta . metaTextDefaults)
         (snd $ deckStateTweenUpdate ^. deckStateCurrentCard)
 
+
+
+    -- perform everyloop actions. placed here so stuff gets rendered over the card stuff already rendered.
+    deckStateAfterLoopActions <- performEachLoopActions renderer deck deckStateTweenUpdate
+
     -- Update screen, draw the targetTexture.
     renderToArea <- presentTarget renderer window targetTexture (deck ^. deckMeta . metaResolution)
 
@@ -258,7 +279,7 @@ appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTextur
     -- Handle events (including checking for quit)
     events <- pollEvents
     let quitEvent = elem QuitEvent $ map eventPayload events
-    deckState' <- eventLoopDispatcher renderer (deck ^. deckPath) deckStateTweenUpdate deck events renderToArea
+    deckState' <- eventLoopDispatcher renderer (deck ^. deckPath) deckStateAfterLoopActions deck events renderToArea
     -- handle key input (mapping abstraction)
     keyFunc <- SDL.getKeyboardState
     (finalDeckState, finalKeyTimes) <- performAllKeyStateMapActionFunctions renderer window keyFunc currentTime (fromIntegral (currentTime - lastTime) / 1000.0) keyTimes keyMappings deckState'

@@ -30,6 +30,7 @@ import DeckPlayer.Audio (playSound)
 import DeckPlayer.TypesConstants (deckStateAssetRegistry)
 import DeckPlayer.TypesConstants qualified as TypesConstants
 import DeckPlayer.Draw
+import qualified Data.Text as T
 
 
 getOrUpdateAssets renderer assetRegistry' deckStateMVar deckPath deckDirectory assetPath assetConsumingFunction resultsReturned = do
@@ -58,13 +59,24 @@ getOrUpdateAssets renderer assetRegistry' deckStateMVar deckPath deckDirectory a
 
 Basically a wrapper for 'drawText' that can be called from Lua.
 
+drawTextDefaults
+    :: Renderer
+    -> TextDefaults
+    -> AssetRegistry
+    -> Maybe String
+    -> Maybe (Int, Int, Int)
+    -> Maybe (CInt, CInt)
+    -> Maybe Bool
+    -> T.Text
+    -> IO ()
+
 -}
-drawTextLua :: Renderer -> CardDeck -> HsLua.Lua HsLua.NumResults
-drawTextLua renderer deck = do
+drawTextLua :: Renderer -> AssetRegistry -> CardDeck -> HsLua.Lua HsLua.NumResults
+drawTextLua renderer assets deck = do
     textToDraw <- HsLua.peek 1
-    let cardText = CardText Nothing Nothing Nothing Nothing textToDraw Nothing
     let textDefaults = deck ^. deckMeta . metaTextDefaults
-    liftIO $ drawText renderer "" textDefaults cardText
+    --_ <- liftIO $ print textDefaults
+    liftIO $ drawTextDefaults renderer textDefaults assets Nothing Nothing Nothing Nothing (T.pack textToDraw)
     return 0 -- No results returned
 
 {- | Lua mapping for 'playSound'.
@@ -137,6 +149,7 @@ checkFlag deckState' = do
     HsLua.pushboolean isSet
     return 1
 
+-- THIS IS ALWAYS NILL?!!?!?
 {- | Lua function for setting the Lua store in 'DeckState'.
 
 Allows for arbitrary data from Lua to be stored in 'DeckState'.
@@ -146,8 +159,10 @@ setLuaStore :: MVar TypesConstants.DeckState -> HsLua.Lua HsLua.NumResults
 setLuaStore deckStateMVar = do
     -- Extract the new value from the Lua stack
     resultNewValue <- HsLua.runPeek $ LuaAeson.peekValue (-1)
+    --_ <- liftIO $ print $ "hello " ++ show resultNewValue
     case resultNewValue of
-        HsLua.Success val -> liftIO $ modifyMVar_ deckStateMVar (\_ -> return $ TypesConstants.DeckState { TypesConstants._deckStateLuaStore = val })
+        HsLua.Success val -> do
+            liftIO $ modifyMVar_ deckStateMVar (\deckState -> return $ deckState { TypesConstants._deckStateLuaStore = val })
         HsLua.Failure errBytes _ -> error $ "Invalid JSON value: " ++ show errBytes
     return 0 -- Number of results returned to Lua
 
@@ -160,7 +175,9 @@ getLuaStore deckStateMVar = do
     record <- liftIO $ readMVar deckStateMVar
     -- Push the stored Lua data onto the Lua stack
     let luaValue = TypesConstants._deckStateLuaStore record
-    LuaAeson.pushValue luaValue
+    --_ <- liftIO $ print luaValue
+    --LuaAeson.pushValue luaValue
+    HsLua.pushViaJSON luaValue
     return 1 -- Number of results returned to Lua (in this case, 1 value is pushed)
 
 {- | Run a Lua script.
@@ -200,6 +217,9 @@ runLuaScript renderer deck deckState scriptString = do
 
         HsLua.pushHaskellFunction (getLuaStore deckStateMVar)
         HsLua.setglobal "getLuaStore"
+
+        HsLua.pushHaskellFunction (drawTextLua renderer assetRegistry deck)
+        HsLua.setglobal "drawText"
 
         HsLua.dostring scriptString
     case status of

@@ -168,6 +168,7 @@ data Card = Card
     , _cardMusic :: Maybe CardMusic
     , _cardText :: Maybe CardText -- could be [CardText]
     , _cardOnLoad :: Maybe [Action]
+    , _cardEachLoop :: Maybe [Action]
     }
     deriving (Show, Generic, FromJSON, Eq, Data, Typeable)
 
