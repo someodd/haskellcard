@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Ability to store/retrieve arbitrary data using Lua scripts
   * Draw text from Lua script
   * On load actions for a card
+  * Each loop actions for a card
 
 ### Fixed
 
