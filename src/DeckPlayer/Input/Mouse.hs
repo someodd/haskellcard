@@ -16,6 +16,7 @@ import DeckPlayer.Assets
 import DeckFormat.Structure (DeckDirectory(..))
 
 import DeckPlayer.Action
+import Data.Word (Word32)
 
 {- | Set the cursor to a specific cursor.
 
@@ -46,14 +47,14 @@ setCursor' assetRegistry cursorSpec = do
     pure cursor
 
 hookMouseClickObject :: MouseEventProcessor
-hookMouseClickObject renderer deckState cardDeck deckPath' (x, y) obj = do
+hookMouseClickObject renderer currentTicks deckState cardDeck deckPath' (x, y) obj = do
     insideObject <- isInsideObject renderer (deckState ^. deckStateAssetRegistry) deckPath' (x, y) obj
     if insideObject
         then do
             -- Process onclick actions if any
             deckState' <- case obj ^. objectOnClick of
                 [] -> return deckState
-                actions -> foldM (\state action -> handleAction renderer action cardDeck state) deckState actions
+                actions -> foldM (\state action -> handleAction renderer action cardDeck currentTicks state) deckState actions
             pure $ deckStateHoveredObjects
                 .~ updateHoverStatus (deckState' ^. deckStateHoveredObjects) obj $ deckState'
         else do
@@ -62,7 +63,7 @@ hookMouseClickObject renderer deckState cardDeck deckPath' (x, y) obj = do
 
 -- FIXME: move to an input module like mouse?
 hookMouseHoverObject :: MouseEventProcessor
-hookMouseHoverObject renderer deckState cardDeck deckPath' (x, y) obj = do
+hookMouseHoverObject renderer currentTicks deckState cardDeck deckPath' (x, y) obj = do
     insideObject <- isInsideObject renderer (deckState ^. deckStateAssetRegistry) deckPath' (x, y) obj
     if insideObject
         then do
@@ -79,7 +80,7 @@ hookMouseHoverObject renderer deckState cardDeck deckPath' (x, y) obj = do
                                 deckState' =
                                     deckStateHoveredObjects
                                         .~ updateHoverStatus (deckState ^. deckStateHoveredObjects) obj $ deckState
-                            foldM (\state action -> handleAction renderer action cardDeck state) deckState' actions
+                            foldM (\state action -> handleAction renderer action cardDeck currentTicks state) deckState' actions
         else do
             -- The mouse is not inside the object bounds, so we know we can remove it from the set of hovered objects.
             _ <-
@@ -92,8 +93,9 @@ hookMouseHoverObject renderer deckState cardDeck deckPath' (x, y) obj = do
 In the future this may be expanded from simply (CInt, CInt) to a custom MouseEventData
 type (so we can handle clicks, motions, wheel).
 -}
-type MouseEventProcessor =
-    Renderer
+type MouseEventProcessor
+    = Renderer
+    -> Word32
     -> DeckState
     -> CardDeck
     -> FilePath
@@ -113,19 +115,20 @@ respective 'MouseEventProcessor').
 processMouseEvents
     :: MouseEventProcessor
     -> Renderer
+    -> Word32
     -> CardDeck
     -> FilePath
     -> DeckState
     -> [CardObject]
     -> [(CInt, CInt)]
     -> IO DeckState
-processMouseEvents hookFunction renderer cardDeck deckPath initialDeckState objects coords =
+processMouseEvents hookFunction renderer currentTicks cardDeck deckPath initialDeckState objects coords =
     foldM (processCoord objects) initialDeckState coords
   where
     processCoord :: [CardObject] -> DeckState -> (CInt, CInt) -> IO DeckState
     processCoord objs currentState coord =
         foldM
-            (\currentState' obj -> hookFunction renderer currentState' cardDeck deckPath coord obj)
+            (\currentState' obj -> hookFunction renderer currentTicks currentState' cardDeck deckPath coord obj)
             currentState
             objs
 
@@ -150,8 +153,8 @@ adjustedMouseCoord renderer coord renderArea = do
         )
 
 eventLoopDispatcher
-    :: Renderer -> FilePath -> DeckState -> CardDeck -> [Event] -> Rectangle CInt -> IO DeckState
-eventLoopDispatcher renderer deckPath deckState cardDeck events renderToArea = do
+    :: Renderer -> Word32 -> FilePath -> DeckState -> CardDeck -> [Event] -> Rectangle CInt -> IO DeckState
+eventLoopDispatcher renderer currentTicks deckPath deckState cardDeck events renderToArea = do
     -- FIXME: translate coordinates based on scale factor/full screen, etc.
     mouseClickEvents <- sequence
         [ adjustedMouseCoord renderer (fromIntegral x, fromIntegral y) renderToArea
@@ -173,6 +176,7 @@ eventLoopDispatcher renderer deckPath deckState cardDeck events renderToArea = d
                 processMouseEvents
                     hookMouseClickObject
                     renderer
+                    currentTicks
                     cardDeck
                     deckPath
                     deckState
@@ -181,6 +185,7 @@ eventLoopDispatcher renderer deckPath deckState cardDeck events renderToArea = d
             processMouseEvents
                 hookMouseHoverObject
                 renderer
+                currentTicks
                 cardDeck
                 deckPath
                 newDeckState

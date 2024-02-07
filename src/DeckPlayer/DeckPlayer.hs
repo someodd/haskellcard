@@ -194,8 +194,8 @@ onload actions, then perform the onload actions. But also, if it's the first ite
 in general/the first time the card is shown.
 
 -}
-performOnloadActions :: Renderer -> CardDeck -> DeckState -> IO DeckState
-performOnloadActions renderer deck deckState = do
+performOnloadActions :: Renderer -> CardDeck -> Word32 -> DeckState -> IO DeckState
+performOnloadActions renderer deck currentTicks deckState = do
     let
         currentCard = snd $ deckState ^. deckStateCurrentCard
         onloadActions = fromMaybe [] $ currentCard ^. cardOnLoad
@@ -203,19 +203,19 @@ performOnloadActions renderer deck deckState = do
     -- FIXME: extract to isnewcard?
     if currentCardChanged deckState || not (currentCardChanged deckState) && (snd (deckState ^. deckStateCurrentCard) == (deck ^. deckTitleCard))
         then
-            handleActions renderer onloadActions deck deckState
+            handleActions renderer onloadActions deck currentTicks deckState
         else do
             pure deckState
 
 {- | Perform some action(s) every iteration.
 
 -}
-performEachLoopActions :: Renderer -> CardDeck -> DeckState -> IO DeckState
-performEachLoopActions renderer deck deckState = do
+performEachLoopActions :: Renderer -> CardDeck -> Word32 -> DeckState -> IO DeckState
+performEachLoopActions renderer deck currentTicks deckState = do
     let
         currentCard = snd $ deckState ^. deckStateCurrentCard
         onTickActions = fromMaybe [] $ currentCard ^. cardEachLoop
-    _ <- handleActions renderer onTickActions deck deckState
+    _ <- handleActions renderer onTickActions deck currentTicks deckState
     pure deckState
 
 {- | The main loop of the application.
@@ -246,7 +246,7 @@ appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTextur
 
     -- will perform the onload actions if the current card has changed
     -- FIXME: needs to get new state
-    deckStateAfterOnloadActions <- performOnloadActions renderer deck deckStateRegistryChecked
+    deckStateAfterOnloadActions <- performOnloadActions renderer deck currentTime deckStateRegistryChecked
 
     -- Update all animations in the registry
     -- helper function shuld amke i think (abstract out)
@@ -270,7 +270,7 @@ appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTextur
 
 
     -- perform everyloop actions. placed here so stuff gets rendered over the card stuff already rendered.
-    deckStateAfterLoopActions <- performEachLoopActions renderer deck deckStateTweenUpdate
+    deckStateAfterLoopActions <- performEachLoopActions renderer deck currentTime deckStateTweenUpdate
 
     -- Update screen, draw the targetTexture.
     renderToArea <- presentTarget renderer window targetTexture (deck ^. deckMeta . metaResolution)
@@ -279,7 +279,7 @@ appLoop renderer musicQueue deck deckState lastTime window keyTimes targetTextur
     -- Handle events (including checking for quit)
     events <- pollEvents
     let quitEvent = elem QuitEvent $ map eventPayload events
-    deckState' <- eventLoopDispatcher renderer (deck ^. deckPath) deckStateAfterLoopActions deck events renderToArea
+    deckState' <- eventLoopDispatcher renderer currentTime (deck ^. deckPath) deckStateAfterLoopActions deck events renderToArea
     -- handle key input (mapping abstraction)
     keyFunc <- SDL.getKeyboardState
     (finalDeckState, finalKeyTimes) <- performAllKeyStateMapActionFunctions renderer window keyFunc currentTime (fromIntegral (currentTime - lastTime) / 1000.0) keyTimes keyMappings deckState'

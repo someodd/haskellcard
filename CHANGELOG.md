@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Draw text from Lua script
   * On load actions for a card
   * Each loop actions for a card
+  * Lua script function for getting the current tick(s)
+  * Lua script function for getting the mouse position
 
 ### Fixed
 

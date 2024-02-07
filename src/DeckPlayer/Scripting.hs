@@ -18,7 +18,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.HashMap.Strict qualified as HashMap
 import Data.Maybe (fromJust)
 import HsLua qualified
-import SDL (Renderer)
+import SDL (Renderer, getAbsoluteMouseLocation, V2 (..), Point (..))
 import qualified HsLua.Aeson as LuaAeson (pushValue, peekValue) 
 import Data.Aeson (Value)
 
@@ -31,6 +31,8 @@ import DeckPlayer.TypesConstants (deckStateAssetRegistry)
 import DeckPlayer.TypesConstants qualified as TypesConstants
 import DeckPlayer.Draw
 import qualified Data.Text as T
+import Data.Word (Word32)
+import SDL.Raw (Point(..))
 
 
 getOrUpdateAssets renderer assetRegistry' deckStateMVar deckPath deckDirectory assetPath assetConsumingFunction resultsReturned = do
@@ -54,29 +56,20 @@ getOrUpdateAssets renderer assetRegistry' deckStateMVar deckPath deckDirectory a
                 return newDeckState
             return resultsReturned
 
--- FIXME
+-- FIXME: maybe lua arguments?!
 {- | Lua function for drawing text.
 
 Basically a wrapper for 'drawText' that can be called from Lua.
-
-drawTextDefaults
-    :: Renderer
-    -> TextDefaults
-    -> AssetRegistry
-    -> Maybe String
-    -> Maybe (Int, Int, Int)
-    -> Maybe (CInt, CInt)
-    -> Maybe Bool
-    -> T.Text
-    -> IO ()
 
 -}
 drawTextLua :: Renderer -> AssetRegistry -> CardDeck -> HsLua.Lua HsLua.NumResults
 drawTextLua renderer assets deck = do
     textToDraw <- HsLua.peek 1
+    xPosition <- HsLua.peek 2
+    yPosition <- HsLua.peek 3
     let textDefaults = deck ^. deckMeta . metaTextDefaults
     --_ <- liftIO $ print textDefaults
-    liftIO $ drawTextDefaults renderer textDefaults assets Nothing Nothing Nothing Nothing (T.pack textToDraw)
+    liftIO $ drawTextDefaults renderer textDefaults assets Nothing Nothing (Just (fromInteger xPosition, fromInteger yPosition)) Nothing (T.pack textToDraw)
     return 0 -- No results returned
 
 {- | Lua mapping for 'playSound'.
@@ -180,6 +173,18 @@ getLuaStore deckStateMVar = do
     HsLua.pushViaJSON luaValue
     return 1 -- Number of results returned to Lua (in this case, 1 value is pushed)
 
+getTicks :: Int -> HsLua.Lua HsLua.NumResults
+getTicks currentTicks = do
+    HsLua.push currentTicks
+    return 1
+
+getMousePosition :: HsLua.Lua HsLua.NumResults
+getMousePosition = do
+    (P (V2 x y)) <- liftIO getAbsoluteMouseLocation
+    HsLua.push $ (fromIntegral x :: Int)
+    HsLua.push $ (fromIntegral y :: Int)
+    return 2
+
 {- | Run a Lua script.
 
 This function is the main entry point for running Lua scripts.
@@ -189,11 +194,12 @@ All of the functions that are exposed to Lua are supplied in this function.
 -}
 runLuaScript
     :: Renderer
+    -> Int
     -> CardDeck
     -> TypesConstants.DeckState
     -> ByteString
     -> IO TypesConstants.DeckState
-runLuaScript renderer deck deckState scriptString = do
+runLuaScript renderer currentTicks deck deckState scriptString = do
     deckStateMVar <- newMVar deckState
     let
         assetRegistry = deckState ^. TypesConstants.deckStateAssetRegistry -- FIXME: maybe this bad and should reference the deckstatemvar in all the funcs?
@@ -220,6 +226,12 @@ runLuaScript renderer deck deckState scriptString = do
 
         HsLua.pushHaskellFunction (drawTextLua renderer assetRegistry deck)
         HsLua.setglobal "drawText"
+
+        HsLua.pushHaskellFunction (getTicks currentTicks)
+        HsLua.setglobal "getTicks"
+
+        HsLua.pushHaskellFunction (getMousePosition)
+        HsLua.setglobal "getMousePosition"
 
         HsLua.dostring scriptString
     case status of
